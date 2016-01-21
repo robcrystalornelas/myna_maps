@@ -1,5 +1,4 @@
 ##Myna Maps##
-install.packages("modestR")
 library(dismo)
 library(rJava)
 library(jsonlite)
@@ -17,9 +16,10 @@ setwd("~/Desktop/Myna Project/myna_maps/Data")
 
 #download occurrences####
 #myna<-gbif('Acridotheres', 'tristis', geo=T, removeZeros = T)
-save(myna, file='myna.rdata')
+#save(myna, file='myna.rdata')
 load('myna.rdata')
 head(myna)
+dim(myna)
 names(myna)
 myna.unique<- distinct(select(myna,lat,lon,country,species,year)) #unique myna points
 myna2<-myna.unique[complete.cases(myna.unique),] #make sure there's no NAs
@@ -165,33 +165,41 @@ counties@data<-left_join(counties@data, myna6_new, by="NAME")
 names(counties) #now reports is included! in our county data.frame
 class(counties) #still an sp.data.frame!
 counties@data #it's good, but so many NAs in the report column.
-counties
+counties #works...but lots of NAs since we don't have info for every county in FL
 
-qtm(counties, "reports") #map of all reports from 1985-2015
-qtm(shp = counties, fill = "reports", fill.palette = "-Blues") #change color palette
+qtm(counties, "reports.y") #map of all reports from 1985-2015
+qtm(shp = counties, fill = "reports.y", fill.palette = "-Blues") #change color palette
 
 #map showing reports broken down by county
 tm_shape(counties) +
-  tm_fill("reports", thres.poly = 0) +
+  tm_fill("reports.y", thres.poly = 0) +
   tm_facets("NAME", free.coords=TRUE, drop.shapes=TRUE) +
   tm_layout(legend.show = FALSE, title.position = c("center", "center"), title.size = 20)
 
 #Mapping using ggplot
-class(counties)
-counties_f <- fortify(counties, region="id")
-head(counties_f)
-counties$id <- row.names(counties) #Not working?
-head(counties_f) #seems like the NAME column here is vector of county names
-counties_f <- left_join(counties_f, counties@data) #now join our fortified data.frame with land@data
-head(counties_f)
+head(counties@data)
+
+counties_f <- fortify(counties, region = "NAME") #region needs to be a name that exists in counties
+#whatever we assigned to region above, turns into 'id' column
+head(counties_f) #now we have long / lat columns as well as counties in the "id" column
+head(counties@data)
+colnames(counties_f)[7] <- "NAME" #this ensures that both shapefile and df have same column name
+head(counties_f) #seems like the "id" column here is vector of county names, and this has lon/lat
+
+#counties$id <- row.names(counties)
+colnames(counties@data)[9] <- "reports"
+
+counties_joined<-left_join(counties_f, counties@data, by= "NAME")
 
 ##GGPLOT WORKS!##
-map <- ggplot(counties_f, aes(long, lat, group = group, fill = reports)) + geom_polygon() +
+map <- ggplot(counties_joined, aes(long, lat, group = NAME, fill = reports.y)) + geom_polygon() +
   coord_equal() +
   labs(x = "Easting (m)", y = "Northing (m)",
-       fill = "% Myna\nReports") + ggtitle("Common Myna Reports by County")
+  fill = "% Myna\nReports") + ggtitle("Common Myna Reports by County")
 map
 #ggsave("myna_invasion_map_11.22.2015.pdf")
 
 #grayscale
 map + scale_fill_gradient(low = "white", high = "black")
+
+
