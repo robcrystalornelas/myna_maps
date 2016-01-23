@@ -145,14 +145,3 @@ myna_dot_plot <- ggplot() +
   scale_colour_manual(values=c("#fef0d9","#fdd49e","#fdbb84","#fc8d59","#e34a33","#b30000")) + #change color scale
   coord_equal(ratio=1) #this squares the plot
 myna_dot_plot
-
-#Trying qtm####
-qtm(counties, "reports") #map of all reports from 1985-2015
-qtm(shp = counties, fill = "reports", fill.palette = "-Blues") #change color palette
-
-#Trying it in tmap####
-#map showing reports broken down by county
-tm_shape(counties) +
-  tm_fill("reports.y", thres.poly = 0) +
-  tm_facets("NAME", free.coords=TRUE, drop.shapes=TRUE) +
-  tm_layout(legend.show = FALSE, title.position = c("center", "center"), title.size = 20)
