@@ -25,8 +25,7 @@ myna.unique<- distinct(select(myna,lat,lon,country,species,year)) #unique myna p
 myna2<-myna.unique[complete.cases(myna.unique),] #make sure there's no NAs
 dim(myna2)
 
-#Florida Invasion####
-#tidy data
+#tidy occurrence points
 unique(myna2$country) 
 class(myna2$country)
 myna2<-filter(myna2, country=="United States") #just mynas in USA
@@ -77,14 +76,26 @@ coords<-cbind(myna4$lon,myna4$lat)
 head(coords)
 points <- SpatialPoints(coords)
 head(points)
-counties <- readShapePoly("cntbnd_jul11") ##Need to change coordinate system here 
-#to match with  occurrence data!
-plot(counties) #New county map
 
-#Assigning lat/long to counties####
-library(sp)
-library(maps)
-library(maptools)
+#import shapefile
+counties <- readShapePoly("cntbnd_jul11")
+counties@data$id = rownames(counties@data)
+counties.points = fortify(counties, region="id")
+counties.df = join(counties.points, counties@data, by="id")
+head(counties.df)
+names(myna_reports_ag)[1] <- "NAME"
+counties.df = left_join(counties.df, myna_reports_ag, by = 'NAME')
+head(counties.df)
+
+#works great for florida map!#
+#florida has no myna reports just yet
+counties.df$individ[is.na(counties.df$individ)] <- 0
+ggplot(counties.df) + 
+  aes(long,lat,group=group, fill=individ) + ##just changing grouping factor really messes with our plot
+  geom_polygon() +
+  coord_equal()
+
+#Function assigning lat/long to counties####
 latlong2county <- function(pointsDF) {
   # Prepare SpatialPolygons object with one SpatialPolygon
   # per county
@@ -114,7 +125,7 @@ myna_by_county <- group_by(myna_county, county)
 myna_by_county
 
 #Join county map and myna points####
-florida_map #this is our data.frame of florida map
+counties.df #this is our data.frame of florida map
 myna_by_county #this is set of occurrence data with county included
 myna_by_county<-na.omit(myna_by_county)
 unique(myna_by_county$county)
@@ -137,7 +148,6 @@ unique(myna_by_county$county)
 myna_by_county #data.frame with correct county names
 
 #Worked examples from tmap vignette####
-head(myna_by_county)
 dim(myna_by_county)
 individ<-rep(1, 1144) #to get 1 bird for every report, makes summarizing easier
 myna_by_county_indiv<-cbind(myna_by_county,individ) #add new column to show 1 individual bird for every report
@@ -151,24 +161,28 @@ myna5<-ddply(myna_by_county_indiv, c("year","county"), summarise, reports=sum(in
 myna6<-ddply(myna_by_county_indiv, c("county"), summarise, reports=sum(individ)) #just combine by county, bunches years together
 myna6 #reports per county from 1985-2015
 
-#clunky way of joining counties map and myna5 data frame by county name
-names(counties@data) #these are names in the counties sp.dataframe
-head(myna6)
-myna6_new_col<-select(myna6, NAME = county)
-myna6_new<-cbind(myna6,myna6_new_col)
-myna6_new$NAME<-as.character(myna6_new$NAME) #seems like leftjoin wants them both  to be character
-myna6_new
+########?#####?#
+counties_f<- fortify(counties)
+head(counties_f) #but lost information here
+counties$id <- row.names(counties) # allocate an id variable to the sp data 
+head(counties@data, n = 2) # final check before join (requires shared variable name!)
+counties_f <- left_join(counties_f, counties@data) #now join our fortified data.frame with land@data
+head(counties_f)
 
-##STUCK HERE, when joining, reports #s don't transfer over.  Maybe because 
-#county names aren't all caps? Maybe because they have all diff years?
+map <- ggplot(counties_f, aes(long, lat, group = NAME, fill = reports)) + geom_polygon() +
+  coord_equal() +
+  labs(x = "Easting (m)", y = "Northing (m)",
+       fill = "% Sports\nParticipation") + ggtitle("London Sports Participation")
+map
+
+#joining count data to county map
+counties84 <- spTransform(counties, CRS("+init=epsg:4326"))
 counties@data<-left_join(counties@data, myna6_new, by="NAME")
-names(counties) #now reports is included! in our county data.frame
+names(counties@data) #now reports is included! in our county data.frame
 class(counties) #still an sp.data.frame!
 counties@data #it's good, but so many NAs in the report column.
-counties #works...but lots of NAs since we don't have info for every county in FL
-
-qtm(counties, "reports.y") #map of all reports from 1985-2015
-qtm(shp = counties, fill = "reports.y", fill.palette = "-Blues") #change color palette
+qtm(counties, "reports") #map of all reports from 1985-2015
+qtm(shp = counties, fill = "reports", fill.palette = "-Blues") #change color palette
 
 #map showing reports broken down by county
 tm_shape(counties) +
@@ -178,28 +192,26 @@ tm_shape(counties) +
 
 #Mapping using ggplot
 head(counties@data)
-
-counties_f <- fortify(counties, region = "NAME") #region needs to be a name that exists in counties
+counties.points <- fortify(counties, region = "id") #region needs to be a name that exists in counties
+counties.df <- join(counties.points,counties@data, by = "id")
+head(counties.df)
 #whatever we assigned to region above, turns into 'id' column
-head(counties_f) #now we have long / lat columns as well as counties in the "id" column
-head(counties@data)
-colnames(counties_f)[7] <- "NAME" #this ensures that both shapefile and df have same column name
-head(counties_f) #seems like the "id" column here is vector of county names, and this has lon/lat
 
-#counties$id <- row.names(counties)
-colnames(counties@data)[9] <- "reports"
+#ggplot really distorts florida map#...maybe because long/lat look really weird?
+counties.df$reports[is.na(counties.df$reports)] <- 0
+head(counties.df)
 
-counties_joined<-left_join(counties_f, counties@data, by= "NAME")
+ggplot(counties.df) + 
+  aes(long,lat,group=NAME) + 
+  geom_polygon() +
+  geom_path(color="white") +
+  coord_equal()
+  
 
-##GGPLOT WORKS!##
-map <- ggplot(counties_joined, aes(long, lat, group = NAME, fill = reports.y)) + geom_polygon() +
+map <- ggplot(counties.df, aes(long, lat, group = NAME, fill = reports)) + 
+  geom_polygon() +
   coord_equal() +
-  labs(x = "Easting (m)", y = "Northing (m)",
-  fill = "% Myna\nReports") + ggtitle("Common Myna Reports by County")
+  labs(x = "Easting (m)", y = "Northing (m)", fill = "% Myna\nReports") + 
+  ggtitle("Common Myna Reports by County")
 map
-#ggsave("myna_invasion_map_11.22.2015.pdf")
-
-#grayscale
-map + scale_fill_gradient(low = "white", high = "black")
-
 
