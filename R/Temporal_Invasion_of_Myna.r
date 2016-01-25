@@ -32,7 +32,9 @@ dim(myna_fl)
 list(myna_fl$year) #all years in our dataset
 
 #bin invasion years
-myna_fl$year_bin<-cut(myna4$year,c(1985,1990,1995,2000,2005,2010,2015)) #bin reports in 5 year increments
+myna_fl$year_bin<-cut(myna4$year,c(1986,1990,1995,2000,2005,2010,2015)) #bin reports in 5 year increments
+unique(myna_fl$year_bin) #with this division... 1990-1995 bin doesn't include 1990...just includes 1991-1995
+myna_fl
 head(myna_fl)
 class(myna_fl$year_bin) #year column is a factor
 myna.reports.bar<-ggplot(myna_fl, aes(x=year_bin, fill=year_bin)) + geom_bar() + 
@@ -276,9 +278,41 @@ names(florida_map_2014)[1]<-"year"
 fl_2015 <- rep("2015",length(florida_map$long))
 florida_map_2015 <- cbind(fl_2015, florida_map)
 names(florida_map_2015)[1]<-"year"
+head(florida_map_2015)
 
 all_florida_years_with_map<-rbind(florida_map_1986,florida_map_1987,florida_map_1988,florida_map_1989,florida_map_1990,florida_map_1991,florida_map_1992,florida_map_1993,florida_map_1994,florida_map_1995,florida_map_1996,florida_map_1997,florida_map_1998,florida_map_1999,florida_map_2000,florida_map_2001,florida_map_2002, florida_map_2003,florida_map_2004,florida_map_2005,florida_map_2006,florida_map_2007,florida_map_2008,florida_map_2009,florida_map_2010,florida_map_2011,florida_map_2012,florida_map_2013,florida_map_2014,florida_map_2015)
 head(all_florida_years_with_map)
+
+####
+#Prep maps for binned years
+####
+head(florida_map)
+fl_1985_1990 <- rep("(1985,1990]",length(florida_map$long))
+florida_map_1985_1990 <- cbind(fl_1985_1990, florida_map)
+names(florida_map_1985_1990)[1]<-"year_binned"
+
+fl_1990_1995 <- rep("(1990,1995]",length(florida_map$long))
+florida_map_1990_1995 <- cbind(fl_1990_1995, florida_map)
+names(florida_map_1990_1995)[1]<-"year_binned"
+
+fl_1995_2000 <- rep("(1995,2000]",length(florida_map$long))
+florida_map_1995_2000 <- cbind(fl_1995_2000, florida_map)
+names(florida_map_1995_2000)[1]<-"year_binned"
+
+fl_2000_2005 <- rep("(2000,2005]",length(florida_map$long))
+florida_map_2000_2005 <- cbind(fl_2000_2005, florida_map)
+names(florida_map_2000_2005)[1]<-"year_binned"
+
+fl_2005_2010 <- rep("(2005,2010]",length(florida_map$long))
+florida_map_2005_2010 <- cbind(fl_2005_2010, florida_map)
+names(florida_map_2005_2010)[1]<-"year_binned"
+
+fl_2010_2015 <- rep("(2010,2015]",length(florida_map$long))
+florida_map_2010_2015 <- cbind(fl_2010_2015, florida_map)
+names(florida_map_2010_2015)[1]<-"year_binned"
+
+all_florida_years_binned_with_map<-rbind(florida_map_1985_1990,florida_map_1990_1995,florida_map_1995_2000,florida_map_2000_2005,florida_map_2005_2010,florida_map_2010_2015)
+head(all_florida_years_binned_with_map)
 
 ##########
 #Now to getting data together
@@ -319,13 +353,13 @@ head(all_florida_years_with_map)
 ####
 #THIS WORKS!!!
 #####
-
 lndf_new<-myna_reports_with_NAME
 lndf_new<-lndf_new[,c(2,1,3,4,5,6,7,8)] #re-order myna reports data.frame
 lndf_new<-na.omit(lndf_new)
 head(lndf_new) #data.frame with lon/lat as well as reports
 lndf_new_agg<-aggregate(lndf_new$individ, by = list(year = lndf_new$year, NAME = lndf_new$NAME), FUN=sum) #aggregate reports by year and county
 head(all_florida_years_with_map)
+head(lndf_new_agg)
 
 #this way we can join our data.frames
 lnd_f_new <- left_join(all_florida_years_with_map, lndf_new_agg) #left join so that we have data.frame with florida maps for each year, and aggregated reports
@@ -342,9 +376,76 @@ ggplot(data = lnd_f_new, # the input data
   theme_nothing(legend = TRUE) + 
   labs(x = "Longitude", y = "Latitude",
        fill = "Reports") + ggtitle("Frequency of Myna Reports in Florida 1986-2015")
+
 #   theme(axis.text = element_blank(), # change the theme options
 #         axis.title = element_blank(), # remove axis titles
 #         axis.ticks = element_blank(), # remove axis ticks
 #         panel.background = element_rect(fill = "white"),
 #         legend.title = element_text(colour = "Black", size = 13, face = "bold")) #sets background of plotting area
+
+#####
+#Binned by 5 year increments
+######
+lndf_for_binned_maps<-myna_reports_with_NAME
+head(lndf_for_binned_maps)
+lndf_for_binned_maps<-lndf_for_binned_maps[,c(2,1,3,4,5,6,7,8)] #re-order myna reports data.frame
+
+
+#aggregate into 5 year bins
+lndf_binned_agg<-aggregate(lndf_for_binned_maps$individ, by = list(year_binned = lndf_for_binned_maps$year_bin, NAME = lndf_for_binned_maps$NAME), FUN=sum) #aggregate reports by year and county
+head(lndf_binned_agg)
+
+#join data.frames
+head(all_florida_years_binned_with_map)
+lndf_binned_agg$year_binned<-as.factor(lndf_binned_agg$year_binned) #making sure 2 d.f I'm combining have exact same column names/class
+head(lndf_binned_agg)
+head(all_florida_years_binned_with_map)
+class(lndf_binned_agg$year_binned)
+class(all_florida_years_binned_with_map$year_binned)
+
+lndf_new_binned <- left_join(all_florida_years_binned_with_map, lndf_binned_agg) #left join so that we have data.frame with florida maps for each year, and aggregated reports
+
+#####
+#Renaming facets
+#####
+
+#renaming function
+labeli2 <- function(variable, value){
+  value <- droplevels(value)
+  names_li <- list('(1985,1990]'="1986-1990",'(1990,1995]'="1991-1995",'(1995,2000]'="1996-2000",'(2000,2005]'="2001-2005",'(2005,2010]'="2006-2010",'(2010-20105]'="2011-2015")
+  return(names_li[value])
+}
+
+######
+#FACET 1 map for every 5 years in Florida
+######
+ggplot(data = lndf_new_binned, # the input data
+       aes(x = long, y = lat, fill = x, group = group)) + # define variables 
+  geom_polygon() + # plot the boroughs
+  geom_path(colour="black", lwd=0.05) + # borough borders
+  coord_equal() + # fixed x and y scales
+  facet_wrap(~ year_binned) + # one plot per time slice
+  #facet_grid( ~ year_binned, labeller=labeli2) + #this line re-names facets, but only
+  scale_fill_gradient2(low = "gray88", mid = "darkorange2", high = "firebrick3",name = "Reports") +
+  theme_nothing(legend = TRUE) + 
+  labs(x = "Longitude", y = "Latitude",
+       fill = "Reports") + ggtitle("Frequency of Myna Reports in Florida 1986-2015")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
