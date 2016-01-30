@@ -12,6 +12,8 @@ library(tmap)
 library(plyr)
 library(dplyr)
 library(tidyr)
+library(RColorBrewer)
+library(ggmap)
 
 setwd("~/Desktop/Myna Project/myna_maps/Data")
 
@@ -314,45 +316,10 @@ names(florida_map_2010_2015)[1]<-"year_binned"
 all_florida_years_binned_with_map<-rbind(florida_map_1985_1990,florida_map_1990_1995,florida_map_1995_2000,florida_map_2000_2005,florida_map_2005_2010,florida_map_2010_2015)
 head(all_florida_years_binned_with_map)
 
-##########
-#Now to getting data together
-#########
-# ltidy2<- select(myna_reports_with_county, year, individ,county)
-# ltidy2<-rename(ltidy2, NAME = county)
-# head(ltidy2)
-# dim(ltidy2)
-# 
-# ltidy2_aggregate<-aggregate(ltidy2$individ, by = list(year = ltidy2$year, county = ltidy2$NAME), FUN=sum)
-# head(ltidy2_aggregate)
-# ltidy2_aggregate <- ltidy2_aggregate[order(ltidy2_aggregate$year),]
-# head(ltidy2_aggregate)
-# 
-# #now, merge our count data with florida geometry data
-# myna_for_facet <- full_join(all_florida_years_with_map, ltidy2_aggregate)
-# head(myna_for_facet)
-# myna_for_facet$year<-as.character(myna_for_facet$year)
-# myna_for_facet$year2<-as.character(myna_for_facet$year2)
-# head(myna_for_facet)
-# 
-# #FACET! now, we can get 1 map per year
-# head(myna_for_facet)
-# unique(myna_for_facet$year)
-# 
-# ggplot(data = myna_for_facet, # the input data
-#        aes(x = long, y = lat, fill = x, group = group)) + # define variables 
-#   geom_polygon() +
-#   geom_path(colour="black", lwd=0.01) +
-#   coord_equal() + # fixed x and y scales
-#   facet_wrap(~ year) + # one plot per time slice...but "year" shows no difference in population counts
-#   #year2 shows change over time, but doesn't show rest of state!
-#   #scale_fill_gradient2(low = "gray88", mid = "darkorange2", high = "firebrick3",name = "Reports") + # legend options 
-#   theme(axis.text = element_blank(), # change the theme options
-#         axis.title = element_blank(), # remove axis titles
-#         axis.ticks = element_blank()) # remove axis ticks
-
 ####
 #THIS WORKS!!!
 #####
+myna_reports_with_NAME<-rename(myna_reports_with_county, NAME = county) 
 lndf_new<-myna_reports_with_NAME
 lndf_new<-lndf_new[,c(2,1,3,4,5,6,7,8)] #re-order myna reports data.frame
 lndf_new<-na.omit(lndf_new)
