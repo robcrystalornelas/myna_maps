@@ -44,20 +44,20 @@ write.csv(myna_fl, file = "myna_fl.csv")
 
 # Barplot for myna reports in 5 year increments
 myna.reports.bar <- ggplot(myna_fl, aes(x=year_bin, fill=year_bin)) + geom_bar() + 
-  ggtitle("Frequency of Common Myna Reports in Florida \n1986-2016") +
+  ggtitle("Frequency of Common Myna Reports in Florida \n1985-2016") +
   xlab("Years") +
   ylab("Reports") +
-  scale_x_discrete(labels=c("1985-1990", "1990-1995","1995-2000","2000-2005","2005-2010","2010-2015")) +
+  scale_x_discrete(labels=c("1985-1990", "1990-1995","1995-2000","2000-2005","2005-2010","2010-2016")) +
   scale_fill_brewer(palette = "Reds") +
   theme(plot.title = element_text(size = rel(2)),
-        axis.text = element_text(size = 15),
-        axis.title = element_text(size = 15),
-        axis.title.x = element_blank()) +
+        axis.text = element_text(size = 20),
+        axis.title = element_text(size = 25),
+        axis.title.x = element_blank(),
+        plot.title = element_text(size = 40)) +
   guides(fill=FALSE)
 myna.reports.bar
 
 # Download florida map ####
-#### TRYING WITH NEW SHAPEFILE! ###
 # Import shapefile for florida
 florida_shapefile <- readOGR(dsn = ".", layer = "cntbnd_jul11")
 florida_shapefile_84<-spTransform(florida_shapefile, CRS("+init=epsg:4326"))
@@ -74,9 +74,8 @@ head(myna_reports)
 
 # Use function to assign all myna reports to specific counties
 myna_coords_for_conversion<-as.matrix(myna_reports[,2:1]) #need to flip lat and lon for function to work here
+myna_reports_with_county_keys <- mutate(myna_reports, county = latlong2county(myna_coords_for_conversion))
 myna_reports_with_county <- mutate(myna_reports, county = latlong2county(myna_coords_for_conversion))
-head(myna_reports_with_county)
-myna_reports_with_county <- myna_reports_with_county[complete.cases(myna_reports_with_county),]
 head(myna_reports_with_county)
 unique(myna_reports_with_county$county)
 
@@ -96,46 +95,56 @@ myna_reports_with_county$county<-gsub('florida,brevard','BREVARD',myna_reports_w
 myna_reports_with_county$county<-gsub('florida,indian river','INDIANRIVER',myna_reports_with_county$county)
 unique(myna_reports_with_county$county)
 head(myna_reports_with_county) #data.frame with correct county names
-names(myna_reports_with_county)[names(myna_reports_with_county)=="county"] <- "id"
-head(myna_reports_with_county)
+
+# Points in the keys are NA, so rename them to MONROE county
+library(data.table)
+setDT(myna_reports_with_county)[is.na(county) & lat <=25.5, county := "MONROE"]
+myna_reports_with_county <- as.data.frame(myna_reports_with_county)
 
 #aggregate all myna reports
-myna_reports_aggregated<-aggregate(individ ~ id, FUN = sum, data = myna_reports_with_county) #aggregate myna counts by county
+myna_reports_aggregated<-aggregate(individ ~ county, FUN = sum, data = myna_reports_with_county) #aggregate myna counts by county
+colnames(myna_reports_aggregated) <- c("id","individ")
+head(myna_reports_aggregated)
 
 #join the florida map to the reports
 # head(florida_df_with_county)
 # myna_reports_aggregated
-# joined_counties_report_and_map <- left_join(florida_df_with_county, myna_reports_aggregated, by= "id") ##HUGE REMINDER HERE left_join function must have inputs that are exactly the same. Not only column names, but county names as well
+joined_counties_report_and_map <- left_join(florida_df, myna_reports_aggregated, by= "id") ##HUGE REMINDER HERE left_join function must have inputs that are exactly the same. Not only column names, but county names as well
 # head(joined_counties_report_and_map)
 
 # Choropleth of all florida myna reports
 myna_report_choropleth <- ggplot(joined_counties_report_and_map) + 
   aes(long, lat, group = group, fill = individ) +
   geom_polygon() + 
-  scale_fill_gradient(low="orange", high="red") + # this has individuals log transformed
+  scale_fill_gradient(low="orange", high="red", name = "Reports") + # this has individuals log transformed
   labs(x = "Longitude", y = "Latitude") + 
-  ggtitle("Frequency of Myna Reports in Florida 1986-2015") +
+  ggtitle("Frequency of Myna Reports in Florida 1985-2016") +
   theme(panel.background = element_rect(fill = "white"),
         legend.title = element_text(colour = "Black", size = 13, face = "bold"),
-        axis.title = element_text(size = 15),
-        axis.text = element_text(size = 13),
-        plot.title = element_text(size = 20))
+        axis.title = element_text(size = 25),
+        axis.text = element_text(size = 25),
+        plot.title = element_text(size = 35),
+        legend.text = element_text(size = 15)) +
+  guides(col = guide_legend(reverse = TRUE))
 myna_report_choropleth
 
 ### dotplot of reports
 myna_dot_plot_all_years <- ggplot() + 
   geom_polygon(data=florida_df, aes(x=long, y=lat,group=group), fill="grey40", colour="grey90", alpha=.8) +
-  labs(x="longitude", y="latitude", title ="Myna Colonization in Florida by Year") + #make labels for axes
+  labs(x="longitude", y="latitude", title ="Myna Reports in Florida by Year") + #make labels for axes
   theme(axis.ticks.y= element_blank(), axis.text.y= element_blank(),
         axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-        plot.title = element_text(size = 20),
+        plot.title = element_text(size = 35),
+        legend.text = element_text(size = 13),
         legend.title=element_blank(),
-        axis.title = element_text(size = 15)) +
+        axis.title = element_blank()) +
   geom_point(data=myna_reports_with_county, aes(x=lon, y=lat, colour=year_bin), alpha=.8, size=3) + #colour must be inside aes()
   scale_colour_manual(values=c("#fcbba1","#fc9272","#fb6a4a","#ef3b2c","#cb181d","#99000d"),
                       labels=c("1985-1990", "1991-1995", "1996-2000", "2001-2005","2006-2010","2011-2016")) #change color scale
 myna_dot_plot_all_years
 
+plot(florida_shapefile_84)
+points(myna_reports_with_county[,2:1], col="red")
 ################
 #set up florida maps. One for each year
 fl_1986 <- rep("1986",length(florida_map$long))
