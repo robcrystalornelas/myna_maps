@@ -40,7 +40,10 @@ myna_fl$year_bin<-cut(myna_fl$year,c(1985,1990,1995,2000,2005,2010,2016)) #bin r
 unique(myna_fl$year_bin) #with this division... 1990-1995 bin doesn't include 1990...just includes 1991-1995
 head(myna_fl)
 class(myna_fl$year_bin) #year column is a factor
-write.csv(myna_fl, file = "myna_fl.csv")
+# write.csv(myna_fl, file = "myna_fl.csv")
+myna_fl<-read.csv("myna_fl_outliers_removed.csv")
+myna_fl <- myna_fl[,4:9]
+head(myna_fl)
 
 # Barplot for myna reports in 5 year increments
 myna.reports.bar <- ggplot(myna_fl, aes(x=year_bin, fill=year_bin)) + geom_bar() + 
@@ -72,14 +75,14 @@ myna_reports<-cbind(myna_fl,individ) #add new column to show 1 individual bird f
 myna_reports$year<-as.factor(myna_reports$year) #also change year to factor
 head(myna_reports)
 
-# Use function to assign all myna reports to specific counties
+# Use function to assign all myna reports to counties
 myna_coords_for_conversion<-as.matrix(myna_reports[,2:1]) #need to flip lat and lon for function to work here
 myna_reports_with_county_keys <- mutate(myna_reports, county = latlong2county(myna_coords_for_conversion))
 myna_reports_with_county <- mutate(myna_reports, county = latlong2county(myna_coords_for_conversion))
 head(myna_reports_with_county)
 unique(myna_reports_with_county$county)
 
-# #replace county names so they align w/ county map
+# Format county names so they align w/ county map
 myna_reports_with_county$county<-gsub('florida,miami-dade','MIAMI-DADE',myna_reports_with_county$county)
 myna_reports_with_county$county<-gsub('florida,broward','BROWARD',myna_reports_with_county$county)
 myna_reports_with_county$county<-gsub('florida,monroe','MONROE',myna_reports_with_county$county)
@@ -100,17 +103,18 @@ head(myna_reports_with_county) #data.frame with correct county names
 library(data.table)
 setDT(myna_reports_with_county)[is.na(county) & lat <=25.5, county := "MONROE"]
 myna_reports_with_county <- as.data.frame(myna_reports_with_county)
+head(myna_reports_with_county)
 
-#aggregate all myna reports
+# Aggregate all myna reports
 myna_reports_aggregated<-aggregate(individ ~ county, FUN = sum, data = myna_reports_with_county) #aggregate myna counts by county
 colnames(myna_reports_aggregated) <- c("id","individ")
 head(myna_reports_aggregated)
 
-#join the florida map to the reports
-# head(florida_df_with_county)
-# myna_reports_aggregated
+# Join the florida map to the reports
+head(florida_df)
+myna_reports_aggregated
 joined_counties_report_and_map <- left_join(florida_df, myna_reports_aggregated, by= "id") ##HUGE REMINDER HERE left_join function must have inputs that are exactly the same. Not only column names, but county names as well
-# head(joined_counties_report_and_map)
+head(joined_counties_report_and_map)
 
 # Choropleth of all florida myna reports
 myna_report_choropleth <- ggplot(joined_counties_report_and_map) + 
@@ -128,9 +132,10 @@ myna_report_choropleth <- ggplot(joined_counties_report_and_map) +
   guides(col = guide_legend(reverse = TRUE))
 myna_report_choropleth
 
-### dotplot of reports
+### Dotplot of reports
 myna_dot_plot_all_years <- ggplot() + 
-  geom_polygon(data=florida_df, aes(x=long, y=lat,group=group), fill="grey40", colour="grey90", alpha=.8) +
+  geom_polygon(data=florida_df, aes(x=long, y=lat, group=group, fill = group), 
+               fill="grey40", colour=NA, alpha=.8) + # setting color to NA makes no county borders (and hence keys are actually visible)
   labs(x="longitude", y="latitude", title ="Myna Reports in Florida by Year") + #make labels for axes
   theme(axis.ticks.y= element_blank(), axis.text.y= element_blank(),
         axis.ticks.x = element_blank(), axis.text.x = element_blank(),
@@ -138,173 +143,191 @@ myna_dot_plot_all_years <- ggplot() +
         legend.text = element_text(size = 13),
         legend.title=element_blank(),
         axis.title = element_blank()) +
-  geom_point(data=myna_reports_with_county, aes(x=lon, y=lat, colour=year_bin), alpha=.8, size=3) + #colour must be inside aes()
+  geom_point(data=myna_reports_with_county, aes(x=lon, y=lat, colour=year_bin), alpha=.8, size=1.5) + #colour must be inside aes()
   scale_colour_manual(values=c("#fcbba1","#fc9272","#fb6a4a","#ef3b2c","#cb181d","#99000d"),
                       labels=c("1985-1990", "1991-1995", "1996-2000", "2001-2005","2006-2010","2011-2016")) #change color scale
 myna_dot_plot_all_years
 
-plot(florida_shapefile_84)
-points(myna_reports_with_county[,2:1], col="red")
-################
-#set up florida maps. One for each year
-fl_1986 <- rep("1986",length(florida_map$long))
-florida_map_1986 <- cbind(fl_1986, florida_map)
+####
+
+# Florida Map Fascets
+
+####
+
+# Set up florida maps, with one florida map for each year
+fl_list <- list(florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df,florida_df)
+year <- seq(1985, 2016, 1)
+fl_list_years <- mapply(cbind, fl_list, "year"=year, SIMPLIFY=F)
+head(fl_list_years[[3]])
+
+# Code here is slow way of making one map for year (code is folded) 
+
+#####
+
+fl_1986 <- rep("1986",length(florida_df$long))
+florida_map_1986 <- cbind(fl_1986, florida_df)
 names(florida_map_1986)[1]<-"year"
 
-fl_1987 <- rep("1987",length(florida_map$long))
-florida_map_1987 <- cbind(fl_1987, florida_map)
+fl_1987 <- rep("1987",length(florida_df$long))
+florida_map_1987 <- cbind(fl_1987, florida_df)
 names(florida_map_1987)[1]<-"year"
 
-fl_1988 <- rep("1988",length(florida_map$long))
-florida_map_1988 <- cbind(fl_1988, florida_map)
+fl_1988 <- rep("1988",length(florida_df$long))
+florida_map_1988 <- cbind(fl_1988, florida_df)
 names(florida_map_1988)[1]<-"year"
 
-fl_1989 <- rep("1989",length(florida_map$long))
-florida_map_1989 <- cbind(fl_1989, florida_map)
+fl_1989 <- rep("1989",length(florida_df$long))
+florida_map_1989 <- cbind(fl_1989, florida_df)
 names(florida_map_1989)[1]<-"year"
 
-fl_1990 <- rep("1990",length(florida_map$long))
-florida_map_1990 <- cbind(fl_1990, florida_map)
+fl_1990 <- rep("1990",length(florida_df$long))
+florida_map_1990 <- cbind(fl_1990, florida_df)
 names(florida_map_1990)[1]<-"year"
 
-fl_1991 <- rep("1991",length(florida_map$long))
-florida_map_1991 <- cbind(fl_1991, florida_map)
+fl_1991 <- rep("1991",length(florida_df$long))
+florida_map_1991 <- cbind(fl_1991, florida_df)
 names(florida_map_1991)[1]<-"year"
 
-fl_1992 <- rep("1992",length(florida_map$long))
-florida_map_1992 <- cbind(fl_1992, florida_map)
+fl_1992 <- rep("1992",length(florida_df$long))
+florida_map_1992 <- cbind(fl_1992, florida_df)
 names(florida_map_1992)[1]<-"year"
 
-fl_1993 <- rep("1993",length(florida_map$long))
-florida_map_1993 <- cbind(fl_1993, florida_map)
+fl_1993 <- rep("1993",length(florida_df$long))
+florida_map_1993 <- cbind(fl_1993, florida_df)
 names(florida_map_1993)[1]<-"year"
 
-fl_1994 <- rep("1994",length(florida_map$long))
-florida_map_1994 <- cbind(fl_1994, florida_map)
+fl_1994 <- rep("1994",length(florida_df$long))
+florida_map_1994 <- cbind(fl_1994, florida_df)
 names(florida_map_1994)[1]<-"year"
 
-fl_1995 <- rep("1995",length(florida_map$long))
-florida_map_1995 <- cbind(fl_1995, florida_map)
+fl_1995 <- rep("1995",length(florida_df$long))
+florida_map_1995 <- cbind(fl_1995, florida_df)
 names(florida_map_1995)[1]<-"year"
 
-fl_1996 <- rep("1996",length(florida_map$long))
-florida_map_1996 <- cbind(fl_1996, florida_map)
+fl_1996 <- rep("1996",length(florida_df$long))
+florida_map_1996 <- cbind(fl_1996, florida_df)
 names(florida_map_1996)[1]<-"year"
 
-fl_1997 <- rep("1997",length(florida_map$long))
-florida_map_1997 <- cbind(fl_1997, florida_map)
+fl_1997 <- rep("1997",length(florida_df$long))
+florida_map_1997 <- cbind(fl_1997, florida_df)
 names(florida_map_1997)[1]<-"year"
 
-fl_1998 <- rep("1998",length(florida_map$long))
-florida_map_1998 <- cbind(fl_1998, florida_map)
+fl_1998 <- rep("1998",length(florida_df$long))
+florida_map_1998 <- cbind(fl_1998, florida_df)
 names(florida_map_1998)[1]<-"year"
 
-fl_1999 <- rep("1999",length(florida_map$long))
-florida_map_1999 <- cbind(fl_1999, florida_map)
+fl_1999 <- rep("1999",length(florida_df$long))
+florida_map_1999 <- cbind(fl_1999, florida_df)
 names(florida_map_1999)[1]<-"year"
 
-fl_2000 <- rep("2000",length(florida_map$long))
-florida_map_2000 <- cbind(fl_2000, florida_map)
+fl_2000 <- rep("2000",length(florida_df$long))
+florida_map_2000 <- cbind(fl_2000, florida_df)
 names(florida_map_2000)[1]<-"year"
 
-fl_2001 <- rep("2001",length(florida_map$long))
-florida_map_2001 <- cbind(fl_2001, florida_map)
+fl_2001 <- rep("2001",length(florida_df$long))
+florida_map_2001 <- cbind(fl_2001, florida_df)
 names(florida_map_2001)[1]<-"year"
 
-fl_2002 <- rep("2002",length(florida_map$long))
-florida_map_2002 <- cbind(fl_2002, florida_map)
+fl_2002 <- rep("2002",length(florida_df$long))
+florida_map_2002 <- cbind(fl_2002, florida_df)
 names(florida_map_2002)[1]<-"year"
 
-fl_2003 <- rep("2003",length(florida_map$long))
-florida_map_2003 <- cbind(fl_2003, florida_map)
+fl_2003 <- rep("2003",length(florida_df$long))
+florida_map_2003 <- cbind(fl_2003, florida_df)
 names(florida_map_2003)[1]<-"year"
 
-fl_2004 <- rep("2004",length(florida_map$long))
-florida_map_2004 <- cbind(fl_2004, florida_map)
+fl_2004 <- rep("2004",length(florida_df$long))
+florida_map_2004 <- cbind(fl_2004, florida_df)
 names(florida_map_2004)[1]<-"year"
 
-fl_2005 <- rep("2005",length(florida_map$long))
-florida_map_2005 <- cbind(fl_2005, florida_map)
+fl_2005 <- rep("2005",length(florida_df$long))
+florida_map_2005 <- cbind(fl_2005, florida_df)
 names(florida_map_2005)[1]<-"year"
 
-fl_2006 <- rep("2006",length(florida_map$long))
-florida_map_2006 <- cbind(fl_2006, florida_map)
+fl_2006 <- rep("2006",length(florida_df$long))
+florida_map_2006 <- cbind(fl_2006, florida_df)
 names(florida_map_2006)[1]<-"year"
 
-fl_2007 <- rep("2007",length(florida_map$long))
-florida_map_2007 <- cbind(fl_2007, florida_map)
+fl_2007 <- rep("2007",length(florida_df$long))
+florida_map_2007 <- cbind(fl_2007, florida_df)
 names(florida_map_2007)[1]<-"year"
 
-fl_2008 <- rep("2008",length(florida_map$long))
-florida_map_2008 <- cbind(fl_2008, florida_map)
+fl_2008 <- rep("2008",length(florida_df$long))
+florida_map_2008 <- cbind(fl_2008, florida_df)
 names(florida_map_2008)[1]<-"year"
 
-fl_2009 <- rep("2009",length(florida_map$long))
-florida_map_2009 <- cbind(fl_2009, florida_map)
+fl_2009 <- rep("2009",length(florida_df$long))
+florida_map_2009 <- cbind(fl_2009, florida_df)
 names(florida_map_2009)[1]<-"year"
 
-fl_2010 <- rep("2010",length(florida_map$long))
-florida_map_2010 <- cbind(fl_2010, florida_map)
+fl_2010 <- rep("2010",length(florida_df$long))
+florida_map_2010 <- cbind(fl_2010, florida_df)
 names(florida_map_2010)[1]<-"year"
 
-fl_2011 <- rep("2011",length(florida_map$long))
-florida_map_2011 <- cbind(fl_2011, florida_map)
+fl_2011 <- rep("2011",length(florida_df$long))
+florida_map_2011 <- cbind(fl_2011, florida_df)
 names(florida_map_2011)[1]<-"year"
 
-fl_2012 <- rep("2012",length(florida_map$long))
-florida_map_2012 <- cbind(fl_2012, florida_map)
+fl_2012 <- rep("2012",length(florida_df$long))
+florida_map_2012 <- cbind(fl_2012, florida_df)
 names(florida_map_2012)[1]<-"year"
 
-fl_2013 <- rep("2013",length(florida_map$long))
-florida_map_2013 <- cbind(fl_2013, florida_map)
+fl_2013 <- rep("2013",length(florida_df$long))
+florida_map_2013 <- cbind(fl_2013, florida_df)
 names(florida_map_2013)[1]<-"year"
 
-fl_2014 <- rep("2014",length(florida_map$long))
-florida_map_2014 <- cbind(fl_2014, florida_map)
+fl_2014 <- rep("2014",length(florida_df$long))
+florida_map_2014 <- cbind(fl_2014, florida_df)
 names(florida_map_2014)[1]<-"year"
 
-fl_2015 <- rep("2015",length(florida_map$long))
-florida_map_2015 <- cbind(fl_2015, florida_map)
+fl_2015 <- rep("2015",length(florida_df$long))
+florida_map_2015 <- cbind(fl_2015, florida_df)
 names(florida_map_2015)[1]<-"year"
 head(florida_map_2015)
 
+fl_2016 <- rep("2016",length(florida_df$long))
+florida_map_2016 <- cbind(fl_2016, florida_df)
+names(florida_map_2016)[1]<-"year"
+head(florida_map_2016)
 all_florida_years_with_map<-rbind(florida_map_1986,florida_map_1987,florida_map_1988,florida_map_1989,florida_map_1990,florida_map_1991,florida_map_1992,florida_map_1993,florida_map_1994,florida_map_1995,florida_map_1996,florida_map_1997,florida_map_1998,florida_map_1999,florida_map_2000,florida_map_2001,florida_map_2002, florida_map_2003,florida_map_2004,florida_map_2005,florida_map_2006,florida_map_2007,florida_map_2008,florida_map_2009,florida_map_2010,florida_map_2011,florida_map_2012,florida_map_2013,florida_map_2014,florida_map_2015)
 head(all_florida_years_with_map)
 
 ####
 #Prep maps for binned years
 ####
-head(florida_map)
-fl_1985_1990 <- rep("(1985,1990]",length(florida_map$long))
-florida_map_1985_1990 <- cbind(fl_1985_1990, florida_map)
+
+head(florida_df)
+fl_1985_1990 <- rep("(1985,1990]",length(florida_df$long))
+florida_map_1985_1990 <- cbind(fl_1985_1990, florida_df)
 names(florida_map_1985_1990)[1]<-"year_binned"
 
-fl_1990_1995 <- rep("(1990,1995]",length(florida_map$long))
-florida_map_1990_1995 <- cbind(fl_1990_1995, florida_map)
+fl_1990_1995 <- rep("(1990,1995]",length(florida_df$long))
+florida_map_1990_1995 <- cbind(fl_1990_1995, florida_df)
 names(florida_map_1990_1995)[1]<-"year_binned"
 
-fl_1995_2000 <- rep("(1995,2000]",length(florida_map$long))
-florida_map_1995_2000 <- cbind(fl_1995_2000, florida_map)
+fl_1995_2000 <- rep("(1995,2000]",length(florida_df$long))
+florida_map_1995_2000 <- cbind(fl_1995_2000, florida_df)
 names(florida_map_1995_2000)[1]<-"year_binned"
 
-fl_2000_2005 <- rep("(2000,2005]",length(florida_map$long))
-florida_map_2000_2005 <- cbind(fl_2000_2005, florida_map)
+fl_2000_2005 <- rep("(2000,2005]",length(florida_df$long))
+florida_map_2000_2005 <- cbind(fl_2000_2005, florida_df)
 names(florida_map_2000_2005)[1]<-"year_binned"
 
-fl_2005_2010 <- rep("(2005,2010]",length(florida_map$long))
-florida_map_2005_2010 <- cbind(fl_2005_2010, florida_map)
+fl_2005_2010 <- rep("(2005,2010]",length(florida_df$long))
+florida_map_2005_2010 <- cbind(fl_2005_2010, florida_df)
 names(florida_map_2005_2010)[1]<-"year_binned"
 
-fl_2010_2015 <- rep("(2010,2015]",length(florida_map$long))
-florida_map_2010_2015 <- cbind(fl_2010_2015, florida_map)
-names(florida_map_2010_2015)[1]<-"year_binned"
+fl_2010_2016 <- rep("(2010,2016]",length(florida_df$long))
+florida_map_2010_2016 <- cbind(fl_2010_2016, florida_df)
+names(florida_map_2010_2016)[1]<-"year_binned"
 
-all_florida_years_binned_with_map<-rbind(florida_map_1985_1990,florida_map_1990_1995,florida_map_1995_2000,florida_map_2000_2005,florida_map_2005_2010,florida_map_2010_2015)
+all_florida_years_binned_with_map<-rbind(florida_map_1985_1990,florida_map_1990_1995,florida_map_1995_2000,florida_map_2000_2005,florida_map_2005_2010,florida_map_2010_2016)
 head(all_florida_years_binned_with_map)
 
 ####
-#THIS WORKS!!!
+# THIS WORKS!!!
 #####
+
 myna_reports_with_NAME<-rename(myna_reports_with_county, NAME = county) 
 lndf_new<-myna_reports_with_NAME
 lndf_new<-lndf_new[,c(2,1,3,4,5,6,7,8)] #re-order myna reports data.frame
@@ -318,7 +341,7 @@ head(lndf_new_agg)
 lnd_f_new <- left_join(all_florida_years_with_map, lndf_new_agg) #left join so that we have data.frame with florida maps for each year, and aggregated reports
 head(lnd_f_new)
 
-#FACET! now, we can get 1 map per year
+# FACET! now, we can get 1 map per year
 ggplot(data = lnd_f_new, # the input data
        aes(x = long, y = lat, fill = x, group = group)) + # define variables 
   geom_polygon() + # plot the boroughs
@@ -359,8 +382,11 @@ class(all_florida_years_binned_with_map$year_binned)
 lndf_new_binned <- left_join(all_florida_years_binned_with_map, lndf_binned_agg) #left join so that we have data.frame with florida maps for each year, and aggregated reports
 
 ######
+
 #FACET 1 map for every 5 years in Florida
+
 ######
+
 ggplot(data = lndf_new_binned, # the input data
        aes(x = long, y = lat, fill = x, group = group)) + # define variables 
   geom_polygon() + # plot the boroughs
@@ -371,11 +397,11 @@ ggplot(data = lndf_new_binned, # the input data
   scale_fill_gradient2(low = "gray88", mid = "darkorange2", high = "firebrick3",name = "Reports") +
   theme_nothing(legend = TRUE) + 
   labs(x = "Longitude", y = "Latitude", fill = "Reports") + 
-  ggtitle("Frequency of Myna Reports in Florida 1986-2015")
+  ggtitle("Frequency of Myna Reports in Florida 1986-2016")
 
 #####
 
-# Renaming facets
+# Function for renaming facets
 
 #####
 
@@ -388,7 +414,7 @@ labeli2 <- function(variable, value){
 
 #####
 
-#Function assigning lat/long to counties####
+# Function for assigning lat/long to counties####
 
 #####
 
